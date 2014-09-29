@@ -20,8 +20,8 @@
 # Boston, MA 02110-1301, USA.
 #
 #   Modified by Mothran for use with HackRF
-
-from gnuradio import gr, gru, optfir, eng_notation, blks2, pager
+#   Modified by Dennis Mantz to work with GNU Radio 3.7
+from gnuradio import gr, eng_notation, filter, pager, blocks
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 from string import split, join, printable
@@ -34,7 +34,16 @@ class app_top_block(gr.top_block):
 		gr.top_block.__init__(self, "flex_hackrf")
 
 		# Set up HackRF source
-		self.u = osmosdr.source_c(args="nchan=" + str(1) + " ")
+		self.u = osmosdr.source( args="numchan=" + str(1) + " " + "" )
+		self.u.set_freq_corr(0, 0)
+		self.u.set_dc_offset_mode(0, 0)
+		self.u.set_iq_balance_mode(0, 0)
+		self.u.set_gain_mode(False, 0)
+		self.u.set_gain(0, 0)
+		self.u.set_if_gain(20, 0)
+		self.u.set_bb_gain(20, 0)
+		self.u.set_antenna("", 0)
+		self.u.set_bandwidth(0, 0)
 
 		# Tune hackRF
 		r = self.u.set_center_freq(options.freq+options.calibration, 0)
@@ -46,16 +55,6 @@ class app_top_block(gr.top_block):
 
 		if options.verbose:
 			print "Tuned to center frequency", (options.freq+options.calibration)/1e6, "MHz"
-
-		# if no gain was specified, use the mid-point in dB
-		if options.rx_gain is None:
-			grange = self.u.get_gain_range()
-			options.rx_gain = float(grange.start()+grange.stop())/2.0
-			print "\nNo gain specified."
-			print "Setting gain to %f (from [%f, %f])" % \
-				(options.rx_gain, grange.start(), grange.stop())
-
-		self.u.set_gain(options.rx_gain, 0)
 
 		# Grab >=3 MHz of spectrum, evenly divisible by 25 KHz channels
 		# (A UHD facility to get sample rate range and granularity would be useful)
@@ -74,16 +73,12 @@ class app_top_block(gr.top_block):
 		if options.verbose:
 			print "\nReceiving", rate/1e6, "MHz of bandwidth containing", self.nchan, "baseband channels."
 
-		taps = gr.firdes.low_pass(1.0,
-								  1.0,
-								  1.0/self.nchan*0.4,
-								  1.0/self.nchan*0.1,
-								  gr.firdes.WIN_HANN)
+		taps = filter.firdes.low_pass(1.0,1.0,1.0/self.nchan*0.4,1.0/self.nchan*0.1,filter.firdes.WIN_HANN)
 
 		if options.verbose:
 			print "Channel filter has", len(taps), "taps"
 
-		self.bank = blks2.analysis_filterbank(self.nchan, taps)
+		self.bank = filter.analysis_filterbank(self.nchan, taps)
 		self.connect(self.u, self.bank)
 
 		mid_chan = int(self.nchan/2)
@@ -94,7 +89,7 @@ class app_top_block(gr.top_block):
 				freq = options.freq-(self.nchan-i)*25e3
 
 			if (freq < 929.0e6 or freq > 932.0e6):
-				self.connect((self.bank, i), gr.null_sink(gr.sizeof_gr_complex))
+				self.connect((self.bank, i), blocks.null_sink(gr.sizeof_gr_complex))
 			else:
 				self.connect((self.bank, i), pager.flex_demod(queue, freq, options.verbose))
 
@@ -103,8 +98,6 @@ def get_options():
 	parser.add_option('-f', '--freq', type="eng_float", default=931.95e6,
 		help="Set receive frequency to FREQ [default=%default]",
 		metavar="FREQ")
-	parser.add_option("", "--rx-gain", type="eng_float", default=None,
-		help="set receive gain in dB (default is midpoint)")
 	parser.add_option("-c",   "--calibration", type="eng_float", default=0.0,
 		help="set frequency offset to Hz", metavar="Hz")
 	parser.add_option("-v", "--verbose", action="store_true", default=False)

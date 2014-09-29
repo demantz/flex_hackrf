@@ -1,6 +1,7 @@
 #FLEX_hackrf
 
-flex_hackrf is an attempt to make a functional flex decoder / scanner using the hackrf as a source.  It is heavenly based on the examples that come with gr-pager and I would like to thank Johnathan Corgan for his work on creating this addon to gnuradio
+flex_hackrf is an attempt to make a functional flex decoder / scanner using the hackrf as a source.  It is heavenly based on the examples that come with gr-pager and I would like to thank Johnathan Corgan for his work on creating this addon to gnuradio.
+This is a modified version of mothran's flex_hackrf script, that should work with GNU Radio 3.7. I didn't do much, all the credit goes to Johnathan and mothran!
 
 
 ##Usage
